@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Delray Beach Digital Twin · BusinessFlare® GIS</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#0A1124; --bg-2:#131D40; --panel:#16204a; --hair:#2C3A6B;
+  --fg:#EAEDF6; --muted:#9AA4C2;
+  --red:#E01E2B; --red-dim:#7c1620;
+  --win:#36D9A0; --warn:#F2B13C; --loss:#FF5A66; --viol:#9b6cff; --blue:#6f9bff; --gold:#ffd27a;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:"Space Grotesk",system-ui,sans-serif;
+  --body:"Inter",system-ui,sans-serif;
+  --r:13px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);-webkit-font-smoothing:antialiased;line-height:1.5}
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+.wrap{max-width:1320px;margin:0 auto;padding:18px max(16px,env(safe-area-inset-left,0px)) 40px}
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.flare{width:28px;height:28px;flex:none;position:relative;border-radius:50%;background:radial-gradient(circle at 38% 34%, #fff, transparent 42%), radial-gradient(circle,var(--red),var(--red-dim));box-shadow:0 0 20px 2px rgba(224,30,43,.5)}
+.wordmark b{font-family:var(--disp);font-weight:700;font-size:1.18rem;letter-spacing:-.01em;display:block;line-height:1.05}
+.wordmark span{font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.modes{margin-left:auto;display:flex;background:var(--bg-2);border:1px solid var(--hair);border-radius:999px;padding:4px;gap:2px}
+.modes button{font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:none;border:0;padding:9px 15px;border-radius:999px;cursor:pointer}
+.modes button[aria-selected=true]{background:var(--red);color:#fff}
+.lede{color:var(--muted);font-size:.88rem;max-width:80ch;margin:0 0 14px}
+.lede b{color:var(--fg)}
+
+.grid{display:grid;grid-template-columns:340px 1fr 310px;gap:14px;align-items:start}
+@media(max-width:1040px){.grid{grid-template-columns:1fr}}
+.col{min-width:0}
+.card{background:linear-gradient(180deg,var(--panel),var(--bg-2));border:1px solid var(--hair);border-radius:var(--r);padding:18px}
+#map{height:620px;border-radius:var(--r);border:1px solid var(--hair);background:#04070e;z-index:0}
+@media(max-width:1040px){#map{height:460px}}
+.maphead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.maphead .mid{font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--win);display:flex;align-items:center;gap:7px}
+.maphead .mid .lv{width:7px;height:7px;border-radius:50%;background:var(--win);box-shadow:0 0 9px var(--win)}
+.maphead .mstat{margin-left:auto;font-family:var(--mono);font-size:.6rem;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+.maphead .mstat b{color:var(--fg)}
+.legend{display:flex;gap:6px 13px;flex-wrap:wrap;margin-top:9px}
+.chip{font-family:var(--mono);font-size:.57rem;letter-spacing:.03em;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+.chip i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+.rail h2,.proj h2{font-family:var(--mono);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.meter{margin-bottom:11px}
+.meter .mh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;gap:8px}
+.meter .mn{font-size:.74rem;font-weight:600}
+.meter .mt{font-family:var(--mono);font-size:.5rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;display:block;font-weight:400}
+.meter .mv{font-family:var(--mono);font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.bar{height:7px;background:#0c1430;border-radius:99px;overflow:hidden;position:relative}
+.bar>i{position:absolute;inset:0 100% 0 0;border-radius:99px;transition:right .7s cubic-bezier(.22,1,.36,1)}
+.b-cor>i{background:linear-gradient(90deg,#3a66d9,var(--blue))}
+.b-lane>i{background:linear-gradient(90deg,var(--red-dim),var(--red))}
+.b-vis>i{background:linear-gradient(90deg,#8a2be0,var(--viol))}
+.b-gen>i{background:linear-gradient(90deg,var(--warn),#ffd27a)}
+.b-coa>i{background:linear-gradient(90deg,#1f8f66,var(--win))}
+.b-base>i{background:linear-gradient(90deg,#b06a1e,#ffce7a)}
+
+.yeartag{font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;color:var(--red);text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.yeartag .dot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red)}
+.scene-t{font-family:var(--disp);font-weight:700;font-size:1.3rem;letter-spacing:-.015em;margin:9px 0 6px;line-height:1.12}
+.scene-b{color:var(--muted);font-size:.88rem;margin:0 0 12px}
+.dataline{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.dataline .dt{font-family:var(--mono);font-size:.58rem;color:var(--blue);background:rgba(111,155,255,.1);border:1px solid rgba(111,155,255,.28);border-radius:6px;padding:3px 8px}
+.choices{display:flex;flex-direction:column;gap:9px}
+.choice{text-align:left;background:#101a3c;border:1px solid var(--hair);color:var(--fg);border-radius:10px;padding:12px 14px;cursor:pointer;font-family:var(--body);font-size:.88rem;display:flex;gap:11px;align-items:flex-start}
+.choice:hover{border-color:var(--red);background:#14214a}
+.choice .k{font-family:var(--mono);font-size:.7rem;color:var(--red);flex:none;margin-top:1px;font-weight:600}
+.choice .ct b{display:block;font-weight:600;margin-bottom:2px}
+.choice .ct .cs{color:var(--muted);font-size:.8rem;display:block;margin-bottom:6px}
+.choice .ct .cd{font-family:var(--mono);font-size:.58rem;color:#7f8cb0}
+.choice .ct .cd s{text-decoration:none;color:var(--fg)}
+.ptiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ptile{background:#0d1733;border:1px solid var(--hair);border-radius:9px;padding:8px 10px}
+.ptile .pl{font-family:var(--mono);font-size:.52rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px;line-height:1.25}
+.ptile .pr{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.ptile .b26{font-family:var(--mono);font-size:.64rem;color:var(--muted)}
+.ptile .ar{font-family:var(--mono);font-size:.64rem;color:#50608c}
+.ptile .p30{font-family:var(--disp);font-weight:700;font-size:.98rem;font-variant-numeric:tabular-nums}
+.p30.good{color:var(--win)} .p30.bad{color:var(--loss)} .p30.mid{color:var(--fg)}
+.proj .pfoot{margin-top:10px;font-family:var(--mono);font-size:.5rem;letter-spacing:.03em;color:#54618a;line-height:1.5}
+.badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;padding:6px 11px;border-radius:999px;margin-bottom:4px}
+.badge.win{background:rgba(54,217,160,.14);color:var(--win);border:1px solid rgba(54,217,160,.4)}
+.badge.loss{background:rgba(255,90,102,.14);color:var(--loss);border:1px solid rgba(255,90,102,.4)}
+.badge.warn{background:rgba(242,177,60,.14);color:var(--warn);border:1px solid rgba(242,177,60,.4)}
+.path{margin:14px 0 4px;display:flex;flex-direction:column;gap:6px}
+.path .step{display:flex;gap:10px;font-size:.82rem;color:var(--muted)}
+.path .step em{font-family:var(--mono);font-size:.64rem;color:var(--red);font-style:normal;min-width:34px}
+.path .step b{color:var(--fg)}
+.replay{margin-top:16px;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;background:var(--red);color:#fff;border:0;padding:11px 18px;border-radius:9px;cursor:pointer}
+.replay.ghost{background:transparent;color:var(--muted);border:1px solid var(--hair);margin-left:8px}
+.pm-head h2{font-family:var(--disp);font-weight:700;font-size:1.3rem;margin:0 0 5px}
+.pm-head p{color:var(--muted);font-size:.88rem;margin:0 0 14px;max-width:64ch}
+.graves{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.grave{text-align:left;background:linear-gradient(180deg,#1a1030,#15152f);border:1px solid #3a2550;border-radius:var(--r);padding:16px;cursor:pointer}
+.grave:hover{border-color:var(--loss)}
+.grave .rip{font-family:var(--mono);font-size:.56rem;letter-spacing:.2em;color:var(--loss);text-transform:uppercase}
+.grave h3{font-family:var(--disp);font-weight:700;font-size:1.08rem;margin:8px 0 6px}
+.grave p{color:var(--muted);font-size:.8rem;margin:0}
+.grave .open{margin-top:10px;font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;color:var(--fg);text-transform:uppercase;opacity:.65}
+.back{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;padding:0;margin-bottom:14px}
+.cause{color:var(--loss);font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase}
+.autopsy h2{font-family:var(--disp);font-weight:700;font-size:1.35rem;margin:8px 0 5px}
+.autopsy .sub{color:var(--muted);font-size:.88rem;margin:0 0 18px}
+.chain{position:relative;padding-left:22px}
+.chain::before{content:"";position:absolute;left:5px;top:6px;bottom:18px;width:2px;background:linear-gradient(180deg,var(--loss),var(--red-dim))}
+.link{position:relative;margin-bottom:16px}
+.link::before{content:"";position:absolute;left:-22px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--loss)}
+.link .yr{font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.link .mv{font-weight:600;font-size:.94rem;margin:3px 0 4px}
+.link .les{color:var(--muted);font-size:.84rem}
+.link .les b{color:var(--win)}
+.fix{margin-top:8px;background:rgba(54,217,160,.08);border:1px solid rgba(54,217,160,.3);border-radius:11px;padding:14px 16px}
+.fix .fh{font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--win);margin-bottom:5px}
+.fix p{margin:0;font-size:.88rem}
+.foot{margin-top:22px;color:var(--muted);font-size:.7rem;border-top:1px solid var(--hair);padding-top:12px;font-family:var(--mono);letter-spacing:.03em;line-height:1.6}
+.hidden{display:none}
+.ziptip{background:rgba(10,17,36,.7)!important;border:0!important;color:#6f82b5!important;font-family:var(--mono);font-size:9px!important;letter-spacing:.1em;box-shadow:none!important;padding:0 3px!important}
+.ziptip::before{display:none!important}
+.leaflet-container{font-family:var(--mono)}
+.leaflet-control-attribution{font-size:9px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="flare" aria-hidden="true"></div>
+    <div class="wordmark"><b>Delray Beach Digital Twin</b><span>BusinessFlare&reg; GIS &middot; Positioning &amp; Targeting Plan</span></div>
+    <div class="modes" role="tablist" aria-label="Mode">
+      <button id="m-fwd" role="tab" aria-selected="true">Govern Forward</button>
+      <button id="m-pm" role="tab" aria-selected="false">Premortem</button>
+    </div>
+  </div>
+  <p class="lede">A live twin of Delray Beach on the real basemap. The five-ZIP trade area (33444, 33445, 33446, 33483, 33484) is drawn from Census ZCTA boundaries; the Congress corridor, downtown and West Atlantic sit at their true coordinates. Each Commission decision repaints the map and re-runs the <b>2026 to 2030 projection</b> on the plan's real figures.</p>
+
+  <section id="forward">
+    <div class="grid">
+      <div class="col card rail">
+        <div id="scene"></div>
+        <div style="margin-top:16px;border-top:1px solid var(--hair);padding-top:14px">
+          <h2>Lever readout</h2>
+          <div class="meter b-cor"><div class="mh"><span class="mn">Corridor capacity<span class="mt">Congress land base</span></span><span class="mv" data-v="cor">50</span></div><div class="bar"><i data-b="cor"></i></div></div>
+          <div class="meter b-base"><div class="mh"><span class="mn">Taxable base<span class="mt">Amendment 3</span></span><span class="mv" data-v="base">50</span></div><div class="bar"><i data-b="base"></i></div></div>
+          <div class="meter b-lane"><div class="mh"><span class="mn">Boutique lane<span class="mt">Downtown &amp; Atlantic</span></span><span class="mv" data-v="lane">50</span></div><div class="bar"><i data-b="lane"></i></div></div>
+          <div class="meter b-vis"><div class="mh"><span class="mn">Visibility<span class="mt">The beacon</span></span><span class="mv" data-v="vis">50</span></div><div class="bar"><i data-b="vis"></i></div></div>
+          <div class="meter b-gen"><div class="mh"><span class="mn">Generational base<span class="mt">Founder lights</span></span><span class="mv" data-v="gen">50</span></div><div class="bar"><i data-b="gen"></i></div></div>
+          <div class="meter b-coa"><div class="mh"><span class="mn">Coalition &amp; delivery<span class="mt">West Atlantic / CRA</span></span><span class="mv" data-v="coa">50</span></div><div class="bar"><i data-b="coa"></i></div></div>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="maphead">
+          <span class="mid"><span class="lv"></span>BusinessFlare&reg; GIS : City of Delray Beach</span>
+          <span class="mstat"><span>ECON PARCELS <b id="stat-cor">6 / 12</b></span><span>BASE <b id="stat-base">$19.1B</b></span><span id="stat-yr">2026</span></span>
+        </div>
+        <div id="map"></div>
+        <div class="legend">
+          <span class="chip"><i style="background:var(--win)"></i>Congress economic parcel</span>
+          <span class="chip"><i style="background:#8a2b38"></i>Converted to residential</span>
+          <span class="chip"><i style="background:var(--gold)"></i>Boutique lane / founder</span>
+          <span class="chip"><i style="background:var(--viol)"></i>Visibility beacon</span>
+          <span class="chip"><i style="background:#1f8f66"></i>West Atlantic / CRA</span>
+          <span class="chip"><i style="background:var(--red)"></i>Amendment 3 erosion</span>
+        </div>
+      </div>
+
+      <div class="col card proj">
+        <h2>2030 Projection</h2>
+        <div class="ptiles" id="ptiles"></div>
+        <div class="pfoot" id="pfoot"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="premortem" class="hidden">
+    <div class="card" id="pm-board">
+      <div class="pm-head"><h2>It is 2030. The plan failed.</h2>
+        <p>Six ways it could have died are already on the board. Pick one and run the autopsy: the exact decisions, in order, that killed it, and the move that would have saved it.</p></div>
+      <div class="graves" id="graves"></div>
+    </div>
+    <div class="card autopsy hidden" id="autopsy" style="margin-top:14px"></div>
+  </section>
+
+  <div class="foot">Live digital twin on the real basemap &middot; boundaries: U.S. Census ZCTA for the five-ZIP Delray trade area &middot; figures from the Positioning &amp; Targeting Plan (Lightcast, CoStar, Placer.ai, IRS SOI, ESRI) &middot; projection is an illustrative BusinessFlare&reg; model on those figures, not a forecast of record</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script id="zips" type="application/json">
+{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"ZIP":"33445"},"geometry":{"type":"Polygon","coordinates":[[[-80.09106,26.46156],[-80.09102,26.45932],[-80.09101,26.45637],[-80.09096,26.45238],[-80.09092,26.44687],[-80.09086,26.44546],[-80.09086,26.44171],[-80.09087,26.43951],[-80.09084,26.43888],[-80.09081,26.43621],[-80.09078,26.43456],[-80.09079,26.43277],[-80.09077,26.43067],[-80.09076,26.42985],[-80.09072,26.42449],[-80.09916,26.42435],[-80.10565,26.42436],[-80.10935,26.42436],[-80.12022,26.42427],[-80.12191,26.42426],[-80.12198,26.42804],[-80.12201,26.42962],[-80.12203,26.43075],[-80.12205,26.43213],[-80.12208,26.43339],[-80.12212,26.43565],[-80.12215,26.437],[-80.12219,26.43906],[-80.12227,26.44287],[-80.12233,26.44588],[-80.12243,26.45067],[-80.12246,26.45209],[-80.12249,26.4539],[-80.12249,26.45443],[-80.12249,26.45556],[-80.12258,26.46047],[-80.12263,26.46307],[-80.12264,26.46366],[-80.12266,26.46456],[-80.12266,26.46535],[-80.12261,26.46658],[-80.12259,26.46697],[-80.12256,26.46733],[-80.12254,26.4677],[-80.12251,26.46835],[-80.1225,26.46905],[-80.1225,26.46945],[-80.12252,26.47159],[-80.12253,26.47475],[-80.12254,26.4761],[-80.12255,26.47711],[-80.12255,26.47752],[-80.12166,26.47749],[-80.12166,26.47855],[-80.12049,26.47945],[-80.12052,26.4798],[-80.12063,26.47986],[-80.12257,26.48011],[-80.12258,26.48175],[-80.1226,26.48329],[-80.1226,26.48385],[-80.11838,26.48385],[-80.11543,26.48385],[-80.11356,26.48385],[-80.10853,26.48379],[-80.10586,26.48375],[-80.10048,26.48373],[-80.09493,26.48365],[-80.08529,26.48346],[-80.08639,26.48048],[-80.08797,26.47606],[-80.08901,26.47322],[-80.09018,26.47005],[-80.09057,26.46898],[-80.09105,26.46709],[-80.0911,26.4659],[-80.09108,26.46253],[-80.09106,26.46156]]]}},{"type":"Feature","properties":{"ZIP":"33484"},"geometry":{"type":"Polygon","coordinates":[[[-80.14654,26.43228],[-80.14656,26.43724],[-80.14661,26.44029],[-80.14672,26.44339],[-80.14682,26.44635],[-80.14688,26.4481],[-80.14529,26.44812],[-80.14421,26.44795],[-80.14373,26.44818],[-80.14368,26.44977],[-80.14453,26.4509],[-80.14196,26.45159],[-80.14196,26.45341],[-80.14708,26.45356],[-80.14705,26.46011],[-80.14704,26.46405],[-80.14702,26.46881],[-80.14705,26.47263],[-80.14713,26.48088],[-80.13895,26.48393],[-80.13584,26.48385],[-80.1226,26.48385],[-80.12257,26.48083],[-80.12257,26.47989],[-80.12052,26.4798],[-80.12046,26.47872],[-80.12166,26.47855],[-80.12255,26.47711],[-80.12253,26.47475],[-80.1225,26.46945],[-80.12251,26.46835],[-80.12256,26.46733],[-80.12261,26.46658],[-80.12266,26.46551],[-80.12266,26.46444],[-80.1226,26.46155],[-80.12248,26.45537],[-80.12249,26.45375],[-80.12234,26.44658],[-80.12219,26.43932],[-80.12215,26.437],[-80.12207,26.43295],[-80.12202,26.43035],[-80.12193,26.42579],[-80.12682,26.42425],[-80.13134,26.42422],[-80.13582,26.42417],[-80.14087,26.42417],[-80.14651,26.42412],[-80.14647,26.42789],[-80.14447,26.42984],[-80.14653,26.42977],[-80.14654,26.43228]]]}},{"type":"Feature","properties":{"ZIP":"33483"},"geometry":{"type":"Polygon","coordinates":[[[-80.06535,26.49148],[-80.06458,26.49424],[-80.063,26.49412],[-80.06188,26.49551],[-80.06136,26.49704],[-80.06052,26.49715],[-80.05983,26.49743],[-80.0585,26.49767],[-80.05843,26.49853],[-80.0588,26.49864],[-80.05926,26.49865],[-80.06005,26.49841],[-80.06069,26.49875],[-80.06005,26.49913],[-80.06051,26.49934],[-80.05941,26.49934],[-80.05881,26.49963],[-80.05813,26.49964],[-80.05697,26.50719],[-80.05362,26.50678],[-80.05366,26.50589],[-80.0536,26.50469],[-80.05351,26.50487],[-80.05149,26.50493],[-80.05116,26.50664],[-80.04659,26.50739],[-80.0514,26.4755],[-80.05386,26.45425],[-80.06276,26.42655],[-80.06466,26.42645],[-80.06529,26.42387],[-80.06559,26.42074],[-80.06921,26.42065],[-80.07301,26.42175],[-80.07631,26.42279],[-80.07569,26.42668],[-80.07457,26.43373],[-80.07354,26.44128],[-80.07264,26.44704],[-80.07176,26.45252],[-80.07126,26.4557],[-80.07003,26.45982],[-80.07015,26.46347],[-80.06901,26.46713],[-80.0682,26.46922],[-80.0683,26.47418],[-80.06745,26.47953],[-80.067,26.48137],[-80.06606,26.48748],[-80.06557,26.49111],[-80.06535,26.49148]]]}},{"type":"Feature","properties":{"ZIP":"33446"},"geometry":{"type":"Polygon","coordinates":[[[-80.14704,26.47156],[-80.14703,26.46499],[-80.14705,26.46011],[-80.14708,26.45356],[-80.14196,26.45341],[-80.14196,26.45159],[-80.14453,26.4509],[-80.14368,26.44977],[-80.14387,26.44796],[-80.14529,26.44812],[-80.14688,26.4481],[-80.14677,26.44495],[-80.14664,26.44117],[-80.14656,26.43724],[-80.14654,26.43228],[-80.14654,26.43095],[-80.14579,26.42978],[-80.14448,26.42792],[-80.14653,26.42788],[-80.15128,26.42405],[-80.1624,26.42397],[-80.1716,26.42398],[-80.17247,26.41705],[-80.19387,26.41705],[-80.20383,26.41695],[-80.20603,26.41436],[-80.20593,26.41487],[-80.20964,26.41669],[-80.20995,26.41459],[-80.21076,26.41528],[-80.21177,26.41576],[-80.21283,26.41602],[-80.21383,26.41603],[-80.21619,26.41538],[-80.21735,26.41517],[-80.21879,26.41514],[-80.21984,26.4153],[-80.22078,26.41564],[-80.2214,26.41564],[-80.22213,26.41549],[-80.2226,26.41526],[-80.22307,26.41485],[-80.22323,26.41455],[-80.22296,26.4131],[-80.2229,26.41235],[-80.22251,26.41158],[-80.22212,26.41123],[-80.22146,26.4108],[-80.2211,26.40998],[-80.22402,26.41657],[-80.22831,26.43117],[-80.22961,26.43117],[-80.22297,26.45765],[-80.22147,26.46375],[-80.22007,26.48323],[-80.20458,26.48325],[-80.18257,26.48365],[-80.17315,26.48366],[-80.16,26.48373],[-80.15122,26.48386],[-80.14713,26.48088],[-80.14704,26.47156]]]}},{"type":"Feature","properties":{"ZIP":"33444"},"geometry":{"type":"Polygon","coordinates":[[[-80.09106,26.46156],[-80.0911,26.4659],[-80.09057,26.46898],[-80.08901,26.47322],[-80.08532,26.48337],[-80.08376,26.48335],[-80.08254,26.4835],[-80.0825,26.48545],[-80.08207,26.4858],[-80.08213,26.48635],[-80.08187,26.48661],[-80.0816,26.48691],[-80.08127,26.4868],[-80.08109,26.48711],[-80.08009,26.4876],[-80.07975,26.48689],[-80.07936,26.48605],[-80.07818,26.48663],[-80.07792,26.48823],[-80.0775,26.48826],[-80.07671,26.48858],[-80.07819,26.48924],[-80.07721,26.49053],[-80.07605,26.49083],[-80.07484,26.49086],[-80.07429,26.49136],[-80.07135,26.49145],[-80.06715,26.49148],[-80.06555,26.49148],[-80.06542,26.49107],[-80.06713,26.48056],[-80.06768,26.47803],[-80.0689,26.46922],[-80.06816,26.46713],[-80.07001,26.46347],[-80.07045,26.45982],[-80.06999,26.458],[-80.07147,26.45434],[-80.07241,26.44851],[-80.07332,26.44288],[-80.07367,26.44046],[-80.07488,26.43176],[-80.07586,26.42561],[-80.0765,26.42282],[-80.07865,26.42426],[-80.08152,26.42475],[-80.08869,26.42435],[-80.0905,26.42435],[-80.09072,26.42449],[-80.09076,26.42985],[-80.09081,26.43621],[-80.09085,26.43999],[-80.09096,26.45238],[-80.09106,26.46145],[-80.09106,26.46156]]]}}]}
+</script>
+<script>
+(function(){
+  "use strict";
+  var M={cor:50,base:50,lane:50,vis:50,gen:50,coa:50};
+  var round=0, path=[];
+  var CORCELLS=12, DTCELLS=15, WACELLS=8, FOUNDER=16;
+  var railV=document.querySelectorAll('[data-v]'), railB=document.querySelectorAll('[data-b]');
+  function clamp(n){return Math.max(0,Math.min(100,n));}
+  function pct(v,n){return Math.round(v/100*n);}
+
+  /* ---------- real basemap ---------- */
+  var map=L.map('map',{zoomControl:true,attributionControl:true}).setView([26.458,-80.084],13);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; OpenStreetMap &copy; CARTO &middot; BusinessFlare&reg; GIS', subdomains:'abcd', maxZoom:19
+  }).addTo(map);
+  var sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+    attribution:'Esri World Imagery', maxZoom:19});
+  var labels=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19});
+  L.control.layers({'Dark basemap':L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd'}),'Satellite':L.layerGroup([sat,labels])},null,{position:'topright'}).addTo(map);
+
+  // five-ZIP trade area (real Census ZCTA)
+  var ZIPS=JSON.parse(document.getElementById('zips').textContent);
+  L.geoJSON(ZIPS,{style:{color:'#4a6cff',weight:1.3,opacity:.7,fill:true,fillColor:'#1b2a52',fillOpacity:.1}})
+    .eachLayer(function(l){var z=l.feature.properties.ZIP;var c=l.getBounds().getCenter();
+      L.tooltip({permanent:true,direction:'center',className:'ziptip'}).setLatLng(c).setContent(z).addTo(map);})
+    .addTo(map);
+
+  // real-coordinate anchors
+  var CONG=-80.0897, ATL=26.4615;
+  var corridorCells=[], dtCells=[], waCells=[], fndCells=[], beacon=null, eroRect=null;
+
+  // Congress corridor parcels, stacked N-S along Congress (Atlantic to Lake Ida)
+  var latBot=26.4520, latTop=26.4788, cstep=(latTop-latBot)/CORCELLS;
+  for(var i=0;i<CORCELLS;i++){
+    var b=[[latBot+cstep*i, CONG-0.0024],[latBot+cstep*(i+1)-0.0006, CONG+0.0024]];
+    var r=L.rectangle(b,{weight:1,color:'#2b8f6a',fillColor:'#1c6a4e',fillOpacity:.8}).addTo(map);
+    corridorCells.push(r);
+  }
+  // Downtown core grid near Atlantic x Federal
+  for(var d=0;d<DTCELLS;d++){var col=d%5,row=Math.floor(d/5);
+    var m2=L.circleMarker([ATL-0.0014+row*0.0015, -80.0712+col*0.0016],{radius:6,weight:1,color:'#c99a3e',fillColor:'#15203f',fillOpacity:.95}).addTo(map);
+    dtCells.push(m2);}
+  // West Atlantic / CRA row, Congress to Swinton
+  for(var a=0;a<WACELLS;a++){var lon=CONG+(a+0.5)*((-80.0728-CONG)/WACELLS);
+    var m3=L.circleMarker([ATL+0.0016, lon],{radius:6,weight:1,color:'#2fae80',fillColor:'#14233a',fillOpacity:.95}).addTo(map);
+    waCells.push(m3);}
+  // Founder-residence scatter, real-ish coords across the ZIPs
+  var fp=[[26.470,-80.075],[26.458,-80.064],[26.455,-80.086],[26.448,-80.070],[26.464,-80.058],
+          [26.468,-80.093],[26.452,-80.079],[26.475,-80.067],[26.459,-80.101],[26.438,-80.072],
+          [26.447,-80.060],[26.472,-80.088],[26.456,-80.055],[26.445,-80.083],[26.451,-80.097],[26.470,-80.063]];
+  for(var f=0;f<FOUNDER;f++){var m4=L.circleMarker(fp[f],{radius:4,weight:0,fillColor:'#2a3350',fillOpacity:.9}).addTo(map);fndCells.push(m4);}
+  // Visibility beacon over downtown
+  beacon=L.circle([ATL,-80.0672],{radius:300,color:'#9b6cff',weight:1.4,fillColor:'#9b6cff',fillOpacity:.05,opacity:.5}).addTo(map);
+  // Amendment 3 erosion overlay over the trade area
+  eroRect=L.rectangle([[26.409,-80.229],[26.507,-80.046]],{stroke:false,fillColor:'#E01E2B',fillOpacity:0}).addTo(map);
+
+  function updateMap(){
+    var econ=pct(M.cor,CORCELLS), lit=pct(M.lane,DTCELLS), wa=pct(M.coa,WACELLS), fnd=pct(M.gen,FOUNDER);
+    corridorCells.forEach(function(r,i){var e=i<econ;r.setStyle({color:e?'#2b8f6a':'#8a2b38',fillColor:e?'#1c6a4e':'#5a2230'});});
+    dtCells.forEach(function(m,i){var on=i<lit;m.setStyle({fillColor:on?'#ffd27a':'#15203f',color:on?'#e0b45c':'#2a3658',fillOpacity:on?1:.9});});
+    waCells.forEach(function(m,i){var on=i<wa;m.setStyle({fillColor:on?'#1f8f66':'#14233a',color:on?'#2fae80':'#2a3658'});});
+    fndCells.forEach(function(m,i){var on=i<fnd;m.setStyle({fillColor:on?'#ffd27a':'#2a3350',fillOpacity:on?1:.6,radius:on?5:4});});
+    beacon.setRadius(250+M.vis*22); beacon.setStyle({opacity:.2+M.vis/100*.6,fillOpacity:M.vis/100*.09});
+    eroRect.setStyle({fillOpacity:(100-M.base)/100*0.22});
+    document.getElementById('stat-cor').textContent=econ+' / '+CORCELLS;
+    document.getElementById('stat-base').textContent='$'+(19.13*(0.80+0.40*(M.base/100))).toFixed(1)+'B';
+    document.getElementById('stat-yr').textContent = round<ROUNDS.length?ROUNDS[round].year:'2030';
+  }
+
+  /* ---------- projections ---------- */
+  var TILES=[
+    {id:'base',lab:'Taxable base (Amd 3)',b26:'$19.1B',f:function(){return '$'+(19.13*(0.80+0.40*(M.base/100))).toFixed(1)+'B';},dir:function(){return M.base-50;}},
+    {id:'acres',lab:'Congress econ. land',b26:'172 ac',f:function(){return Math.round(172*(M.cor/100))+' ac';},dir:function(){return M.cor-50;}},
+    {id:'parcels',lab:'Econ. parcels retained',b26:'72',f:function(){return Math.round(72*(M.cor/100))+' / 72';},dir:function(){return M.cor-50;}},
+    {id:'jobs',lab:'Target-lane jobs',b26:'0 new',f:function(){return '+'+Math.round((M.lane/100)*2400).toLocaleString();},dir:function(){return M.lane-45;}},
+    {id:'visit',lab:'Visitor spend',b26:'$208M',f:function(){return '$'+Math.round(208.1*(1+(M.vis/100-0.5)*0.28))+'M';},dir:function(){return M.vis-50;}},
+    {id:'agi',lab:'Net AGI inflow (county)',b26:'$3.02B',f:function(){return '$'+(3.02*(0.72+((M.base+M.coa)/200)*0.75)).toFixed(2)+'B';},dir:function(){return (M.base+M.coa)/2-50;}},
+    {id:'edit',lab:'Editorial placements',b26:'1 / yr',f:function(){return Math.round((M.vis/100)*30)+' / yr';},dir:function(){return M.vis-50;}},
+    {id:'firms',lab:'Founder firms retained',b26:'45',f:function(){return Math.round(45*(0.6+(M.gen/100)*0.9))+'';},dir:function(){return M.gen-50;}},
+    {id:'age',lab:'Median age',b26:'50.3',f:function(){return (51.3-(M.gen/100-0.5)*3.2).toFixed(1);},dir:function(){return M.gen-50;}}
+  ];
+  function buildTiles(){var h='';TILES.forEach(function(t){h+='<div class="ptile"><span class="pl">'+t.lab+'</span><div class="pr"><span class="b26">'+t.b26+'</span><span class="ar">&rarr;</span><span class="p30 mid" id="p30-'+t.id+'">'+t.f()+'</span></div></div>';});document.getElementById('ptiles').innerHTML=h;}
+  function renderProjections(){TILES.forEach(function(t){var el=document.getElementById('p30-'+t.id);if(!el)return;el.textContent=t.f();var d=t.dir();el.className='p30 '+(d>6?'good':d<-6?'bad':'mid');});
+    document.getElementById('pfoot').textContent='Decision '+Math.min(round,6)+' of 6 applied. 2026 base: $19.13B city taxable value, Congress 172 ac / 72 parcels, 65,846 trade-area jobs, $208.1M visitor spend, net AGI $3.02B (from $7.04B), 1 editorial placement vs 25 for peers, 45 founder-residence firms, median age 50.3.';}
+
+  function paintRail(){railV.forEach(function(el){el.textContent=Math.round(M[el.dataset.v]);});railB.forEach(function(el){el.style.right=(100-clamp(M[el.dataset.b]))+'%';});renderProjections();updateMap();}
+
+  var ROUNDS=[
+    {year:"2026",t:"Buy the story, or chase the campus",b:"The plan's first recommendation is to buy the story: Delray is a boutique, founder-led, high-touch city that already wins relocations it never marketed. The other instinct is to chase a Boca-scale anchor the data says does not want to exist here.",
+     data:["708 pro-services firms","1,421 CoStar tenants","Boca: 12x the office inventory"],
+     ch:[{k:"A",h:"Endorse the boutique framework",s:"Adopt the target-firm hierarchy and own the five-to-fifty-employee, founder-led lane no peer city is marketing to.",cd:"Lane <s>+14</s> &middot; Coalition +10 &middot; Base +2",d:{lane:14,coa:10,gen:4,vis:4,cor:2,base:2}},
+      {k:"B",h:"Chase a headquarters at Boca's scale",s:"Spend the effort pursuing a 500-employee anchor. Every dollar after it is a dollar not spent on the next DigitalBridge.",cd:"Lane <s>-12</s> &middot; Corridor -4 &middot; Coalition -6",d:{lane:-12,cor:-4,coa:-6,vis:6,gen:-4,base:-2}},
+      {k:"C",h:"Hedge, pursue both at once",s:"Keep a foot in each game and commit to neither. Safe on paper, diffuse in practice.",cd:"Lane +2 &middot; Corridor -2",d:{lane:2,coa:2,cor:-2}}]},
+    {year:"2026",t:"The Amendment 3 shock",b:"Amendment 3 raised the homestead exemption, cutting the taxable value the City of Delray Beach's budget and its economic development program are funded from. Across the map the base erodes. This is a hit to the City's own roll, not a line item for one district. Watch the tax base.",
+     data:["$19.13B city taxable value","General fund exposure","Amendment 3 impact model"],
+     ch:[{k:"A",h:"Model the citywide hit and defend the base",s:"Run the Amendment 3 impact model on the City roll, quantify the exposure to taxable value and the general fund, and build the mitigation into the budget cycle before the cut compounds.",cd:"Base <s>+22</s> &middot; Coalition +10 &middot; Corridor +4",d:{base:22,coa:10,cor:4,vis:6}},
+      {k:"B",h:"Absorb it as a one-time study",s:"Commission a single report on the hit and move on. The number is known, the resilience is never built into the budget.",cd:"Base +6 &middot; Coalition -4 &middot; Lane -2",d:{base:6,coa:-4,vis:-2,lane:-2}},
+      {k:"C",h:"Treat it as the state's problem",s:"Stay out of the fight and let the cut land on the City roll. The base erodes and every program it funds gets smaller.",cd:"Base <s>-18</s> &middot; Coalition -6 &middot; Corridor -4",d:{base:-18,coa:-6,cor:-4,gen:-4}}]},
+    {year:"2026",t:"The Congress corridor decision",b:"This is the decision that governs the plan. Congress carries the largest adaptable commercial, industrial, flex and maker land base in the city, and the MROC-to-SAD pattern plus the 180-day discontinuance clock are converting it to residential, parcel by parcel. Watch the corridor.",
+     data:["172 acres, 72 parcels","MROC-to-SAD rezonings","LDR 1.3.4(B)(2)(a) clock"],
+     ch:[{k:"A",h:"Protect the corridor now",s:"Direct Planning and the City Attorney on the seven-move regulatory package and establish the SAD economic-use retention practice before more land is gone.",cd:"Corridor <s>+24</s> &middot; Lane +8 &middot; Base +4",d:{cor:24,lane:8,coa:6,gen:4,base:4}},
+      {k:"B",h:"Commission one more study first",s:"Confirm the conversion rate against City pipeline records and wait. Defensible, but the parcels keep flipping while you measure.",cd:"Corridor <s>-12</s> &middot; Visibility -2",d:{cor:-12,coa:2,vis:-2}},
+      {k:"C",h:"Let the SAD conversions run",s:"Treat it as a land-use sidebar, not an economic development decision. The residential wave decides the corridor for you.",cd:"Corridor <s>-26</s> &middot; Lane -6 &middot; Generational -6",d:{cor:-26,lane:-6,gen:-6,base:-2}}]},
+    {year:"2027",t:"The West Atlantic 600 block",b:"The CRA controls parcels on the 600 block of West Atlantic. A proposal would site an Aldi there. It is legitimately community-serving, a grocery gap residents have raised for years, but it is not an economic development use, and the choice sets the corridor's identity for the next decade.",
+     data:["CRA-controlled parcels","Aldi proposal","Community vs ED use"],
+     ch:[{k:"A",h:"Reserve the land for higher-value use",s:"Hold the CRA parcels for maker space, creator hub, or mixed-use that builds the tax base. Names a real tradeoff out loud.",cd:"Coalition <s>+14</s> &middot; Corridor +8 &middot; Base +4",d:{coa:14,cor:8,lane:6,gen:2,base:4}},
+      {k:"B",h:"Approve the Aldi grocery",s:"Fill the amenity gap now. Community-serving and popular, but the one CRA-controlled stretch is spent on retail, not the economy.",cd:"Coalition +6 &middot; Corridor -8 &middot; Lane -4",d:{coa:6,cor:-8,lane:-4,base:2}},
+      {k:"C",h:"Punt the decision",s:"Leave the parcels in limbo and decide later. The corridor drifts while the window closes.",cd:"Coalition -8 &middot; Corridor -2",d:{coa:-8,cor:-2}}]},
+    {year:"2028",t:"Closing the 25-to-1 gap",b:"Boca and West Palm earned more than twenty-five editorial stories in Refresh Miami in a year. Delray earned one venue listing. The product is strong and invisible. DigitalBridge, Vertical Bridge and HOERBIGER are the working case studies nobody pushed into the publications site selectors read. Watch the beacon.",
+     data:["25 stories to 1","3 real relocations to tell","Barron's wealth lane"],
+     ch:[{k:"A",h:"Run the trade-press campaign",s:"Push the real relocations into Site Selection, Business Facilities and Refresh Miami, contract the first Barron's placement for the wealth lane, open the LinkedIn B2B channel.",cd:"Visibility <s>+20</s> &middot; Lane +8 &middot; Generational +4",d:{vis:20,lane:8,gen:4,base:2}},
+      {k:"B",h:"Stay organic and invisible",s:"Keep winning quietly and hope discovery holds. It worked for a decade, but the AGI inflow is already narrowing.",cd:"Visibility <s>-14</s> &middot; Generational -4",d:{vis:-14,gen:-4}},
+      {k:"C",h:"Buy generic paid marketing",s:"Spend on broad lifestyle advertising with no target-firm focus. Motion without the editorial credibility that moves prospects.",cd:"Visibility +4 &middot; Coalition -6 &middot; Lane -4",d:{vis:4,coa:-6,lane:-4}}]},
+    {year:"2029",t:"The generational clock",b:"The trade area runs 85 percent above the national norm for residents at or near retirement and more than 50 percent below for Gen Z. Natural growth is negative. Every net new resident must be imported, and the import pipeline is shrinking. Watch the founder lights.",
+     data:["Median age 50.3 to 51.3","45 founder-residence firms","Miami spillover at peak"],
+     ch:[{k:"A",h:"Claim the Miami spinoff, retain the founders",s:"Position Delray as the place the next cohort goes when Miami gets to be too much, and serve the founder-residence economy already here through light-touch, opt-in programs.",cd:"Generational <s>+20</s> &middot; Lane +8 &middot; Visibility +6",d:{gen:20,lane:8,vis:6,base:4}},
+      {k:"B",h:"Recruit a headcount tech anchor",s:"Chase a tech employer and hope young workers follow. It is Boca's game again, and the tech workforce is bifurcating away from it.",cd:"Generational <s>-12</s> &middot; Lane -8 &middot; Corridor -4",d:{gen:-12,lane:-8,cor:-4,vis:4}},
+      {k:"C",h:"Ride the retiree pipeline",s:"Do nothing and let affluent-retiree migration carry the city as it has for twenty years. Consumptive, pleasant, and running out.",cd:"Generational <s>-16</s> &middot; Lane -4 &middot; Base -2",d:{gen:-16,lane:-4,base:-2}}]}
+  ];
+
+  var sceneEl=document.getElementById('scene');
+  function apply(d){for(var k in d){M[k]=clamp(M[k]+d[k]);}}
+  function renderRound(){
+    var r=ROUNDS[round],ch='';
+    r.ch.forEach(function(c,idx){ch+='<button class="choice" data-ch="'+idx+'"><span class="k">'+c.k+'</span><span class="ct"><b>'+c.h+'</b><span class="cs">'+c.s+'</span><span class="cd">'+c.cd+'</span></span></button>';});
+    var dts=(r.data||[]).map(function(x){return '<span class="dt">'+x+'</span>';}).join('');
+    sceneEl.innerHTML='<div class="yeartag"><span class="dot"></span>'+r.year+' &middot; Decision '+(round+1)+' of 6</div><h1 class="scene-t">'+r.t+'</h1><p class="scene-b">'+r.b+'</p><div class="dataline">'+dts+'</div><div class="choices">'+ch+'</div>';
+    sceneEl.querySelectorAll('[data-ch]').forEach(function(btn){btn.addEventListener('click',function(){pick(ROUNDS[round].ch[+btn.dataset.ch]);});});
+    paintRail();
+  }
+  function pick(c){apply(c.d);path.push({year:ROUNDS[round].year,k:c.k,h:c.h});round++;paintRail();
+    if(round>=ROUNDS.length){return outcome(classify());}setTimeout(renderRound,120);}
+
+  function classify(){
+    if(M.cor<=40)return 'bedroom';
+    if(M.base<=38)return 'hollow';
+    if(M.lane<=42)return 'boca';
+    if(M.gen<=42)return 'retiree';
+    if(M.vis<=42&&M.lane>=48)return 'invis';
+    if(M.cor>=58&&M.lane>=55&&M.gen>=48&&M.base>=46&&(M.vis>=50||M.coa>=52))return 'win';
+    if(M.base<46)return 'hollow';
+    if(M.vis<48)return 'invis';
+    if(M.gen<48)return 'retiree';
+    return 'win';
+  }
+  var ENDINGS={
+    win:{cls:'win',label:'The market city, built',t:'Delray built wealth instead of receiving it',b:'The corridor was protected before the land was gone, the taxable base was defended against the Amendment 3 cut, and the economy had somewhere to happen. The City owned the boutique lane no peer was marketing to, pushed the real relocations into the publications site selectors read, and became the place the next cohort of founders chose. Delray shifted from receiving wealth to building it, exactly as the thesis said it could.'},
+    invis:{cls:'warn',label:'Winning in the dark',t:'Still winning. Still invisible.',b:'The map is lit and the beacon never came on. Delray kept landing relocations it never marketed, but the 25-to-1 editorial gap never closed, and when the organic discovery pipeline slowed the way the IRS data said it would, there was no institutional visibility to replace it. A great city no site selector could find.'},
+    retiree:{cls:'loss',label:'The retiree plateau',t:'Wealthy, aging, and drawing itself down',b:'The founder lights went out one by one. Delray kept the lifestyle and the affluent-retiree pipeline and never built the generational base underneath it. The economy stayed consumptive instead of generative, spending accumulated wealth rather than producing new value, and the median age climbed past 51 while the founders and creators chose somewhere that wanted them.'},
+    boca:{cls:'loss',label:"In Boca's shadow",t:'Played the wrong game and lost it',b:'Downtown never lit up because Delray chased the corporate campus the data said did not want to exist here, competing on scale and incentives it could never match. The boutique lane that was Delray’s to own went unclaimed, the wins went north and south, and the one position no peer city was marketing to stayed empty.'},
+    bedroom:{cls:'loss',label:'The bedroom suburb',t:'The corridor converted, and the economy had nowhere to go',b:'You watched the Congress parcels flip to residential, one by one, while the City measured and deliberated. The 172 acres of adaptable commercial and maker land became apartment blocks, the target economy lost the one corridor that could house it, and a walkable coastal city became a pleasant place to live and commute out of. The land decision was the plan, and it was lost by default.'},
+    hollow:{cls:'loss',label:'The hollowed base',t:'The base eroded, and every program shrank with it',b:'Amendment 3 landed and the City treated it as someone else’s problem. The taxable value the City budget and the economic development program run on kept eroding, the whole map dimmed, and there was no fiscal room left to protect the corridor, close the visibility gap, or import the next generation. The strategy was right and the money underneath it was gone.'}
+  };
+  function outcome(key){var e=ENDINGS[key],steps='';updateMap();
+    path.forEach(function(p){steps+='<div class="step"><em>'+p.year+'</em><div>'+p.k+' &middot; <b>'+p.h+'</b></div></div>';});
+    sceneEl.innerHTML='<div class="badge '+e.cls+'">'+e.label+'</div><h1 class="scene-t">'+e.t+'</h1><p class="scene-b">'+e.b+'</p><div class="yeartag" style="margin-top:6px"><span class="dot"></span>How you got here</div><div class="path">'+steps+'</div><button class="replay" id="replay">Run it again</button><button class="replay ghost" id="toPM">See the premortems</button>';
+    document.getElementById('replay').addEventListener('click',reset);
+    document.getElementById('toPM').addEventListener('click',function(){switchMode('pm');});}
+  function reset(){M={cor:50,base:50,lane:50,vis:50,gen:50,coa:50};round=0;path=[];renderRound();}
+
+  var GRAVES=[
+    {id:'bedroom',rip:'2030',title:'The Bedroom Suburb',blurb:'Congress converted to residential while the City measured. The economy lost its land.',cause:'Cause of death: lost the corridor that governs the plan',
+     chain:[{yr:'2026 · Corridor',mv:'Studied the conversion instead of protecting the corridor',les:'The land decision was the plan. <b>Direct Planning and the City Attorney on the regulatory package before the parcels flip.</b>'},
+       {yr:'2027 · West Atlantic',mv:'Spent the CRA-controlled land on community retail',les:'Every parcel given to residential or discount retail is capacity the target economy cannot get back. <b>Reserve the land that has to be preserved.</b>'},
+       {yr:'2029 · Generational',mv:'Had no corridor left for the young economy to occupy',les:'A young economy needs somewhere to happen, and in Delray that somewhere is finite. <b>Protecting Congress was also the generational decision.</b>'}],
+     fix:'The save was treating the corridor as the economic development decision it is. The seven-move regulatory package and the SAD economic-use retention practice hold the 172 acres the rest of the plan stands on.'},
+    {id:'hollow',rip:'2030',title:'The Hollowed Base',blurb:'Amendment 3 landed and nobody fought it. The taxable base eroded and every program shrank.',cause:'Cause of death: absorbed the Amendment 3 cut instead of mitigating it',
+     chain:[{yr:'2026 · Amendment 3',mv:'Treated the homestead exemption cut as the state’s problem',les:'The City budget and the economic development program run on the taxable base. <b>Model the citywide hit and defend the base in the budget cycle before the cut compounds.</b>'},
+       {yr:'2026 · Corridor',mv:'Had no fiscal room left to protect the corridor',les:'A shrinking base makes every other decision harder. <b>Defending the base is what funds the corridor protection, the visibility push and the talent strategy.</b>'},
+       {yr:'2028 · Visibility',mv:'Could not pay for the campaign that closes the gap',les:'Visibility is cheap only relative to a base that can fund it. <b>The base is the floor every other move stands on.</b>'}],
+     fix:'The save was running the Amendment 3 impact model on the City roll, quantifying the hit to taxable value and the general fund, and building the mitigation into the budget cycle before the cut compounded.'},
+    {id:'invis',rip:'2030',title:'Winning in the Dark',blurb:'The product was strong and nobody heard about it. The pipeline slowed with nothing to replace it.',cause:'Cause of death: never closed the visibility gap',
+     chain:[{yr:'2028 · Visibility',mv:'Stayed organic instead of telling the story',les:'Delray was winning despite being invisible. <b>The question was how much faster it could win if it were visible, and the answer was never tested.</b>'},
+       {yr:'2026 · Framing',mv:'Owned the lane but never announced it',les:'A position no one hears about is a position no one can choose. <b>Claiming the boutique lane only works if the market is told.</b>'},
+       {yr:'2029 · Generational',mv:'Let the discovery pipeline slow with no story behind it',les:'The organic pipeline was already narrowing in the IRS data. <b>Visibility is what carries the city when the passive discovery slows.</b>'}],
+     fix:'The save was the twelve-month trade-press program: push DigitalBridge, Vertical Bridge and HOERBIGER into Site Selection, Business Facilities and Refresh Miami, contract the Barron’s placement, and open the B2B channel while the wins were fresh.'},
+    {id:'boca',rip:'2030',title:"In Boca's Shadow",blurb:'Chased the corporate campus the data said did not want to exist here, and lost the lane that was Delray’s to own.',cause:'Cause of death: competed where it could not win',
+     chain:[{yr:'2026 · Framing',mv:'Chased a headquarters at Boca’s scale',les:'Boca excludes small firms by policy and plays at twelve times the office inventory. <b>Stop competing where you cannot win, and own the lane no peer city is marketing to.</b>'},
+       {yr:'2029 · Generational',mv:'Recruited a headcount tech anchor instead of founders',les:'The tech workforce is bifurcating toward the AI-enabled operator. <b>Cultivate the founders who choose where to live first; the firms are the founders.</b>'},
+       {yr:'2028 · Visibility',mv:'Marketed on scale and incentives Delray could not match',les:'A boutique city selling itself as an institutional one loses on both. <b>Lead with boutique, walkable, real.</b>'}],
+     fix:'The save was discipline about what Delray is and is not competing for. The relocations that already chose Delray prove the boutique lane; own it and leverage Boca and West Palm as feeders.'},
+    {id:'retiree',rip:'2030',title:'The Retiree Plateau',blurb:'Kept the lifestyle and the retiree pipeline, never built the generational base underneath.',cause:'Cause of death: the demographic clock',
+     chain:[{yr:'2029 · Generational',mv:'Rode the affluent-retiree pipeline instead of importing founders',les:'Natural growth is negative and the pipeline is narrowing. <b>Every net new resident must be imported, and the import has to be the next generation.</b>'},
+       {yr:'2026 · Framing',mv:'Optimized for amenity and leisure, not formation',les:'A consumptive economy spends down wealth; a generative one produces it. <b>The generational imperative is the economic strategy viewed across twenty years.</b>'},
+       {yr:'2028 · Visibility',mv:'Never told the founders and creators Delray wanted them',les:'The Miami spillover was at its peak and unclaimed. <b>Position Delray as where the next cohort goes.</b>'}],
+     fix:'The save was claiming the Miami spinoff and serving the founder-residence economy already on the tax roll. Retention is the cheaper half of the generational strategy.'},
+    {id:'stalled',rip:'2030',title:'The Program That Never Shipped',blurb:'The strategy was right and the city could not execute it. Partners never aligned, delivery broke at the counter.',cause:'Cause of death: no delivery capacity behind the plan',
+     chain:[{yr:'2027 · West Atlantic',mv:'Left the CRA-dependent corridors without partner commitments',les:'Two corridors are inert without the CRA acting on the parcels they depend on. <b>Do not put partner-dependent corridors on the critical path without the partners committed.</b>'},
+       {yr:'2026 · Concierge posture',mv:'Branded the service before securing Building and Planning',les:'Permitting runs through departments Economic Development does not control. <b>Secure cooperation and set the service standards before the brand goes public.</b>'},
+       {yr:'2026 · Framing',mv:'Scoped a program larger than the staffing could deliver',les:'A plan the function cannot execute at the staffing on the table is arithmetic, not willingness. <b>Match year-one scope to capacity, or build the capacity first.</b>'}],
+     fix:'The save was the coordinating structure done honestly: the City Manager formalizing each partner on their own governance terms, Building and Planning cooperation secured before any concierge brand, and a year-one scope sized to the staff who run it.'}
+  ];
+  var gravesEl=document.getElementById('graves'),autopsyEl=document.getElementById('autopsy'),boardEl=document.getElementById('pm-board');
+  function renderGraves(){var h='';GRAVES.forEach(function(g){h+='<button class="grave" data-g="'+g.id+'"><div class="rip">† R.I.P. '+g.rip+'</div><h3>'+g.title+'</h3><p>'+g.blurb+'</p><div class="open">Run the autopsy &rarr;</div></button>';});gravesEl.innerHTML=h;
+    gravesEl.querySelectorAll('[data-g]').forEach(function(b){b.addEventListener('click',function(){showAutopsy(b.dataset.g);});});}
+  function showAutopsy(id){var g=GRAVES.filter(function(x){return x.id===id;})[0],links='';
+    g.chain.forEach(function(l){links+='<div class="link"><div class="yr">'+l.yr+'</div><div class="mv">'+l.mv+'</div><div class="les">'+l.les+'</div></div>';});
+    autopsyEl.innerHTML='<button class="back" id="back">&larr; Back to the board</button><div class="cause">'+g.cause+'</div><h2>'+g.title+'</h2><p class="sub">The decisions that led here, in the order they were made:</p><div class="chain">'+links+'</div><div class="fix"><div class="fh">The move that saves it</div><p>'+g.fix+'</p></div>';
+    boardEl.classList.add('hidden');autopsyEl.classList.remove('hidden');
+    document.getElementById('back').addEventListener('click',function(){autopsyEl.classList.add('hidden');boardEl.classList.remove('hidden');});}
+
+  var fwd=document.getElementById('forward'),pm=document.getElementById('premortem'),bF=document.getElementById('m-fwd'),bP=document.getElementById('m-pm');
+  function switchMode(which){var isP=which==='pm';pm.classList.toggle('hidden',!isP);fwd.classList.toggle('hidden',isP);bP.setAttribute('aria-selected',isP);bF.setAttribute('aria-selected',!isP);
+    if(isP){autopsyEl.classList.add('hidden');boardEl.classList.remove('hidden');}else{setTimeout(function(){map.invalidateSize();},60);}}
+  bF.addEventListener('click',function(){switchMode('fwd');});bP.addEventListener('click',function(){switchMode('pm');});
+
+  buildTiles();renderRound();renderGraves();
+  setTimeout(function(){map.invalidateSize();},200);
+})();
+</script>
+</body>
+</html>
